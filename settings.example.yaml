@@ -1,0 +1,9 @@
+server: 'irc.libera.chat'
+port: 6667
+encoding: 'utf-8'
+password:
+nickname: 'nick'
+username: 'user'
+mode: 0
+realname: 'realname'
+timeout: 10
