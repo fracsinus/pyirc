@@ -31,25 +31,20 @@ msg = (
 )
 
 
+class PartialMessageError(Exception):
+    ...
+
+
 class MessageParser:
     def __init__(self, encoding: str):
         self.re = re.compile(msg.encode(encoding))
         self.encoding = encoding
 
     def __call__(self, msg: bytes) -> Dict[str, bytes]:
+        if msg[-2:] != b'\r\n':
+            raise PartialMessageError
+
         if match := self.re.match(msg):
             return match.groupdict()
         else:
-            # print(msg)
             raise ValueError
-
-
-# parser = MessageParser('utf8')
-# examples = [
-#     b':irc.obb.li 005 user CHANNELLEN=50 NICKLEN=9 TOPICLEN=490'
-#     b' AWAYLEN=127 KICKLEN=400 MODES=5 MAXLIST=beI:50 EXCEPTS=e INVEX=I'
-#     b' PENALTY FNC :are supported on this server',
-#     b'PING :3010844149',
-#     b':arch!~archusern@14.40.72.198 JOIN #wandu',
-# ]
-# __all__.extend(['examples', 'parser'])

@@ -1,14 +1,14 @@
+import io
 import select
 import socket
 import threading
 import time
 import yaml
-# from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 
-from message_parser import MessageParser
+from message_parser import MessageParser, PartialMessageError
 
 
 with open('settings.yaml', 'r') as settings_file:
@@ -98,16 +98,28 @@ class IRCClient:
         self.handler = MessageHandler(self)
         self.thread = threading.Thread(target=self.listen, daemon=True)
 
+        self.buffer = io.BytesIO()
+
     def listen(self):
         while True:
-            READ, _, __ = select.select([self.socket], [], [])
+            READ, _, _ = select.select([self.socket], [], [])
             if READ:
                 data = READ[0].recv(4096)
                 if not data:
                     continue
-                messages = [line for line in data.split(b'\r\n') if line]
-                for msg in messages:
-                    self.handler(msg)
+                self.buffer.write(data)
+                self.process()
+
+    def process(self):
+        self.buffer.seek(0)
+        chunk = self.buffer.read()
+        search_start = 0
+        self.buffer.seek(0)
+        while (terminator_index := chunk.find(b'\r\n', search_start)) >= 0:
+            self.handler(chunk[search_start:terminator_index+2])
+            search_start = terminator_index + 2
+
+        self.buffer.truncate(self.buffer.write(chunk[search_start:]))
 
     def connect(self):
         self.socket.connect(self.server)
@@ -124,9 +136,6 @@ class IRCClient:
 
     def send(self, msg):
         return self.socket.send(f'{msg}\r\n'.encode(self.encoding))
-
-    def recv(self, size=512, *args):
-        return self.socket.recv(size, *args)
 
 
 irc = IRCClient(**CONF)
